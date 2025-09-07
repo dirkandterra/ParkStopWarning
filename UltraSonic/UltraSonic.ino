@@ -1,66 +1,75 @@
-// NeoPixel Ring simple sketch (c) 2013 Shae Erisson
-// released under the GPLv3 license to match the rest of the AdaFruit NeoPixel library
 #include <Adafruit_NeoPixel.h>
-//#include "DigiKeyboard.h"
+#define PIN 1
+#define TRIG 3
+#define ECHO 2
+#define NUMPIXELS 2
+#define MILLISBEFORESLEEP 10000
 
-#define PIN            1
-#define NUMPIXELS      2
-#define ECHOPIN        2
-#define TRIGPIN        4
-
-// When we setup the NeoPixel library, we tell it how many pixels, and which pin to use to send signals.
-// Note that for older NeoPixel strips you might need to change the third parameter--see the strandtest
-// example for more information on possible values.
 Adafruit_NeoPixel pixels = Adafruit_NeoPixel(NUMPIXELS, PIN, NEO_GRB + NEO_KHZ800);
-uint32_t alarmOutputMask;
-float duration, distance;
-void setup() {
-  pinMode(TRIGPIN, OUTPUT);  
-	pinMode(ECHOPIN, INPUT);  
-  pixels.begin(); // This initializes the NeoPixel library.
-  digitalWrite(TRIGPIN, LOW);
-  //delayMicroseconds(2);
+uint8_t sensorState = 0;  //0=Sleep, No object, 1= Object in sensing range, 2= Object at desired distance, 3=Sleep, object at desired range
+uint32_t timeToSleep = 0;
+void setup()
+{
+	//Set Pins 0 and 1 as outputs.
+	//Some Digisparks have a built-in LED on pin 0, while some have it on
+	//pin 1. This way, we can all Digisparks.
+  pinMode(ECHO, INPUT);
+  pinMode(TRIG, OUTPUT);
+  pixels.begin();
+  
+
 }
-
-void loop() {
-  static int cycle = 0, oldSensor=0;;
-  uint32_t scanMillis = millis();
-  int sensorValue=0;
+void loop()
+{
+  float duration, distance;
+  static int cycle=0;
+  int ii=0;
+  uint32_t cycleMillis = millis();
+  uint8_t colorToShow[3] = {0,0,0};
   cycle=!cycle;
-
-  digitalWrite(TRIGPIN, HIGH);
+  digitalWrite(TRIG, LOW);
+  delayMicroseconds(2);
+  digitalWrite(TRIG, HIGH);
   delayMicroseconds(10);
-  digitalWrite(TRIGPIN, LOW);
-  duration = pulseIn(ECHOPIN, HIGH);
+  digitalWrite(TRIG, LOW);
+
+  duration = pulseIn(ECHO, HIGH);
   distance = (duration*.0343)/2;
-  //DigiKeyboard.println(distance);
-  if(distance<1000){
-    sensorValue=1;
-  }
-  if(!oldSensor && sensorValue){
-    alarmOutputMask = scanMillis + 10000;
-  }else if(!sensorValue){
-    alarmOutputMask = 0;
-  }
-  oldSensor = sensorValue;
-    // For a set of NeoPixels the first NeoPixel is 0, second is 1, all the way up to the count of pixels minus one.
-    for(int i=0;i<NUMPIXELS;i++){
-      if(cycle){ // && (alarmOutputMask > scanMillis)){
-        if(distance>300){
-          pixels.setPixelColor(i,0xFF,0x00,0x00); // Moderately bright red color. 
-        } else if(distance>200){
-            pixels.setPixelColor(i,0x00,0xFF,0x00); // Moderately bright Green color. 
-        }else if(distance>100){
-            pixels.setPixelColor(i,0x00,0x00,0xFF); // Moderately bright Blue color.
-        }else{
-            pixels.setPixelColor(i,0xFF,0xFF,0x00); // Moderately bright Yellow color.
-        }
-      } else{
-        pixels.setPixelColor(i,0x00,0x00,0x00);
-      }     
+	//Set the LED pins to HIGH. This gives power to the LED and turns it on
+  for(int i=0;i<NUMPIXELS;i++){
+    if(distance>100){
+      colorToShow[0] = 0;
+      colorToShow[1] = 0;
+      colorToShow[2] = 0;
     }
-    pixels.show(); // This sends the updated pixel color to the hardware.
-    delay(500); // Delay for a period of time (in milliseconds). 
-         
-    
+    else if(distance>80){
+      timeToSleep = cycleMillis + MILLISBEFORESLEEP;
+      colorToShow[0] = 0;
+      colorToShow[1] = 0xFF;
+      colorToShow[2] = 0;
+    }
+    else if(distance>65){
+      timeToSleep = cycleMillis + MILLISBEFORESLEEP;
+      colorToShow[0] = 0xFF;
+      colorToShow[1] = 0xFF;
+      colorToShow[2] = 0;
+    }else{
+      colorToShow[0] = 0xFF;
+      colorToShow[1] = 0;
+      colorToShow[2] = 0;
+    }
+  }
+  if(cycleMillis>timeToSleep){
+      colorToShow[0] = 0;
+      colorToShow[1] = 0;
+      colorToShow[2] = 0;
+  }
+  
+  for(int i=0;i<NUMPIXELS;i++){
+    pixels.setPixelColor(i,colorToShow[0],colorToShow[1],colorToShow[2]);
+  }
+  //DigiKeyboard.println(distance);
+	//Wait for a second
+  pixels.show();
+	delay(500);
 }
